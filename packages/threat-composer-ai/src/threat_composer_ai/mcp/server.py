@@ -1,12 +1,15 @@
 """FastMCP server implementation for threat-composer-ai."""
 
 import logging
+import os
 import sys
 
 from fastmcp import FastMCP
 
 from .builder_tools import register_builder_tools
 from .tools import register_tools
+
+TOOLS_ENV_VAR = "THREAT_COMPOSER_AI_MCP_TOOLS"
 
 
 def create_mcp_server() -> FastMCP:
@@ -26,7 +29,16 @@ def create_mcp_server() -> FastMCP:
     )
 
     # Register all tools
-    register_tools(mcp)
+    # "builder" exposes only the tm_* and sys_* tools, for an agent that builds
+    # the model itself and should not see the tools that start the Bedrock
+    # workflow. "all" (the default) exposes everything.
+    tool_set = os.environ.get(TOOLS_ENV_VAR, "all").strip().lower()
+    if tool_set not in ("all", "builder"):
+        raise ValueError(
+            f"{TOOLS_ENV_VAR} must be 'all' or 'builder', not '{tool_set}'"
+        )
+    if tool_set == "all":
+        register_tools(mcp)
     register_builder_tools(mcp)
 
     return mcp
